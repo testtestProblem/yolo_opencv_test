@@ -1,0 +1,18 @@
+# 模型權重（體積大，請自行放置於專案根目錄）
+*.pt
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+
+# 執行紀錄
+logs/
+
+# IDE
+.idea/
+.vscode/
+*.swp

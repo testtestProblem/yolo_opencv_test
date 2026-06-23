@@ -1,0 +1,47 @@
+# 雙模型配置
+models:
+  person:
+    path: "yolo26m.pt"
+    conf_threshold: 0.4
+    iou_threshold: 0.45
+    imgsz: 640
+    target_class: person
+    class_map:
+      person: person
+
+  ppe:
+    path: "best_v2.pt"
+    conf_threshold: 0.5
+    iou_threshold: 0.45
+    imgsz: 640
+    class_map:
+      hard-hat: helmet
+      safety-vest: reflective_vest
+
+# 合規判斷（逐幀 IoU 關聯）
+ppe:
+  helmet_iou_threshold: 0.3
+  vest_iou_threshold: 0.3
+  min_person_height: 30
+
+# 時序確認：100 幀滑動窗口，至少 80 幀命中才算「確認偵測到」
+temporal:
+  window_size: 100
+  confirm_threshold: 80
+  track_iou_threshold: 0.3   # 跨幀 person 框匹配
+
+ui:
+  window_title: "工人 PPE 合規偵測"
+  timer_interval_ms: 30
+  display_min_width: 640
+  display_min_height: 480
+  panel_width: 320
+
+visualizer:
+  box_thickness: 2
+  text_scale: 0.6
+  colors:
+    compliant: [0, 255, 0]
+    violation: [0, 0, 255]
+    ppe: [255, 191, 0]
+    person_only: [0, 165, 255]
