@@ -13,11 +13,11 @@ class ComplianceStatus(Enum):
 
 
 STATUS_LABELS = {
-    ComplianceStatus.COMPLIANT: "合規",
-    ComplianceStatus.NO_HELMET: "未戴安全帽",
-    ComplianceStatus.NO_VEST: "未穿反光背心",
-    ComplianceStatus.NO_PPE: "缺少安全帽與反光背心",
-    ComplianceStatus.PERSON_ONLY: "僅偵測到 person",
+    ComplianceStatus.COMPLIANT: "Compliant",
+    ComplianceStatus.NO_HELMET: "No Hard Hat",
+    ComplianceStatus.NO_VEST: "No Safety Vest",
+    ComplianceStatus.NO_PPE: "Missing Hard Hat and Safety Vest",
+    ComplianceStatus.PERSON_ONLY: "Person Only",
 }
 
 
@@ -26,6 +26,7 @@ class Detection:
     class_name: str
     bbox: tuple[float, float, float, float]
     confidence: float
+    track_id: int | None = None
 
 
 @dataclass
@@ -35,3 +36,6 @@ class PersonCompliance:
     has_helmet: bool
     has_vest: bool
     confidence: float
+    track_id: int | None = None
+    head_roi: tuple[float, float, float, float] | None = None
+    torso_roi: tuple[float, float, float, float] | None = None

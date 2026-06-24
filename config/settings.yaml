@@ -6,6 +6,7 @@ models:
     iou_threshold: 0.45
     imgsz: 640
     target_class: person
+    tracker: "bytetrack.yaml"
     class_map:
       person: person
 
@@ -18,17 +19,23 @@ models:
       hard-hat: helmet
       safety-vest: reflective_vest
 
-# 合規判斷（逐幀 IoU 關聯）
-ppe:
-  helmet_iou_threshold: 0.3
-  vest_iou_threshold: 0.3
+# person 幾何過濾
+filters:
   min_person_height: 30
+  max_area_ratio: 0.7
+  max_aspect_ratio: 1.5
 
-# 時序確認：100 幀滑動窗口，至少 80 幀命中才算「確認偵測到」
+# PPE 關聯：裝備中心點落在該工人 person 框內（Head/Torso ROI 僅供視覺化）
+association:
+  method: center_in_person_box
+  head_ratio: 0.333
+  torso_ratio: 0.5
+
+# 時序確認：滑動窗口 + 命中門檻 + 離場清理
 temporal:
-  window_size: 100
-  confirm_threshold: 80
-  track_iou_threshold: 0.3   # 跨幀 person 框匹配
+  window_size: 120
+  confirm_threshold: 100
+  max_missed_frames: 300
 
 ui:
   window_title: "工人 PPE 合規偵測"
@@ -45,3 +52,5 @@ visualizer:
     violation: [0, 0, 255]
     ppe: [255, 191, 0]
     person_only: [0, 165, 255]
+    head_roi: [255, 255, 0]
+    torso_roi: [255, 0, 255]

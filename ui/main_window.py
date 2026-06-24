@@ -20,8 +20,9 @@ from PySide6.QtWidgets import (
 from config import load_config
 from detector import YOLOEngine
 from ppe.compliance import check_compliance
-from ppe.temporal_tracker import TemporalTracker
-from ui.annotator import draw_frame
+from ppe.smoother import Smoother
+from ppe.types import ComplianceStatus
+from ui.annotator import visualize
 from ui.result_panel import ResultPanel
 
 
@@ -31,19 +32,19 @@ class MainWindow(QMainWindow):
         self.config = load_config()
         ui_cfg = self.config["ui"]
         temporal_cfg = self.config["temporal"]
-        ppe_cfg = self.config["ppe"]
+        self.filters_cfg = self.config.get("filters", {})
+        self.association_cfg = self.config.get("association", {})
 
         self.setWindowTitle(ui_cfg.get("window_title", "工人 PPE 合規偵測"))
         self.setGeometry(100, 100, 1280, 720)
 
         self.engine = YOLOEngine(self.config)
-        self.tracker = TemporalTracker(
+        self.smoother = Smoother(
             window_size=temporal_cfg["window_size"],
             confirm_threshold=temporal_cfg["confirm_threshold"],
-            track_iou_threshold=temporal_cfg["track_iou_threshold"],
+            max_missed_frames=temporal_cfg.get("max_missed_frames", 300),
         )
 
-        self.ppe_settings = ppe_cfg
         self.visualizer_cfg = self.config.get("visualizer", {})
         self.timer_interval = ui_cfg.get("timer_interval_ms", 30)
         self.frame_index = 0
@@ -112,7 +113,8 @@ class MainWindow(QMainWindow):
         self.timer.stop()
         self.btn_start.setText("開始偵測播放")
         self.frame_index = 0
-        self.tracker.reset()
+        self.engine.reset()
+        self.smoother.reset()
 
         if self.cap:
             self.cap.release()
@@ -168,26 +170,34 @@ class MainWindow(QMainWindow):
         detections = self.engine.predict(frame)
         frame_results = check_compliance(
             detections,
-            helmet_iou_threshold=self.ppe_settings["helmet_iou_threshold"],
-            vest_iou_threshold=self.ppe_settings["vest_iou_threshold"],
-            min_person_height=self.ppe_settings["min_person_height"],
+            frame_shape=frame.shape,
+            filters_cfg=self.filters_cfg,
+            association_cfg=self.association_cfg,
         )
-        tracks = self.tracker.update(frame_results)
+        tracks = self.smoother.update(frame_results)
 
-        annotated = draw_frame(frame, detections, tracks, self.visualizer_cfg)
+        annotated = visualize(
+            frame, detections, tracks, frame_results, self.visualizer_cfg
+        )
         self._show_frame(annotated)
         self.result_panel.update_results(tracks, self.frame_index)
 
+        active_ids = {t.track_id for t in tracks}
         compliant = sum(
-            1 for t in tracks if t.confirmed_person and t.temporal_status.value == "compliant"
+            1
+            for t in tracks
+            if t.confirmed_person and t.temporal_status == ComplianceStatus.COMPLIANT
         )
         violation = sum(
             1
             for t in tracks
-            if t.confirmed_person and t.temporal_status.value != "compliant"
+            if t.confirmed_person
+            and t.temporal_status != ComplianceStatus.COMPLIANT
+            and t.temporal_status != ComplianceStatus.PERSON_ONLY
         )
         self.statusBar().showMessage(
-            f"幀 {self.frame_index} | 追蹤 {len(tracks)} 人 | 合規 {compliant} | 異常 {violation}"
+            f"幀 {self.frame_index} | 活躍 Track {len(active_ids)} | "
+            f"合規 {compliant} | 違規 {violation}"
         )
 
     def _show_frame(self, frame) -> None:
