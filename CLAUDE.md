@@ -1,43 +1,38 @@
 【角色設定】
-你是一個專業的「電腦視覺工程師」，精通 Python、YOLO、OpenCV 以及多目標追蹤演算法。
+你是一位資深的 Python 後端工程師與電腦視覺專家。
+
+【專案背景】
+我目前有一個運行在 Ubuntu 上的工人 PPE（安全帽、反光背心）合規偵測專案。目前的架構包含：
+1. `detector/yolo_engine.py`：負責 YOLO 雙模型推理與 ByteTrack 追蹤。
+2. `ppe/compliance.py`：負責單幀的空間幾何過濾與裝備關聯。
+3. `ppe/smoother.py`：基於 `track_id` 提供 120 幀滑動窗口的時序確認機制。
+4. `ui/main_window.py`：目前使用 PySide6 顯示畫面與右側結果面板。
 
 【任務目標】
-請為我撰寫一段完整的 Python 類別（Class）或腳本。系統將即時接收 YOLO 模型的偵測數據（包含 `person`, `helmet`, `reflective_vest` 的絕對像素座標 `x1, y1, x2, y2` 與 confidence），透過空間關聯邏輯判斷工人裝備合規性，並具備時序防閃爍與多目標追蹤機制。
+請幫我將這個專案的執行入口從「桌面端 GUI (PySide6)」改造成「後台伺服器 (Web Server)」，並附帶一個「簡易的 Web 前端頁面」供我進行驗證與測試。請推薦使用 FastAPI 或 Flask 來實作。
 
-【核心演算法與邏輯規範】
+【需求規格】
 
-1. 多目標追蹤 (Multi-Object Tracking)：
-   - 請提供整合 ByteTrack 或 DeepSORT 的程式碼框架。
-   - 每一幀的 `person` 偵測框必須先餵給追蹤器，取得穩定的 `Track ID`。後續的合規性判斷與時序過濾皆綁定此 `Track ID`。
+1. **影像來源支援**：
+   - 支援讀取 USB 攝影機（例如：`cv2.VideoCapture(0)`）。
+   - 支援讀取 RTSP 或一般 URL 影片串流。
+   - 可以在 Web 前端頁面輸入來源並啟動。
 
-2. 邊界情況過濾 (Edge Cases & Filtering)：
-   - **過濾過小物件**：若 `person` 框的高度（`y2 - y1`）小於 30 像素，直接丟棄不處理（距離過遠）。
-   - **過濾過大或異常物件**：
-     - 若 `person` 框的面積超過輸入畫面總面積的 70%，視為距離過近或誤判，直接忽略。
-     - 若 `person` 框的長寬比異常（如 `(x2 - x1) / (y2 - y1) > 1.5`），視為非正常站立狀態或誤判，直接忽略。
-   - **孤立裝備過濾**：未成功關聯到任何 `person` ROI 的 `helmet` 或 `vest`，視為背景物件，不予處理。
+2. **核心邏輯無縫接軌**：
+   - 必須維持原有的 `engine.predict` -> `check_compliance` -> `smoother.update` 的資料流。
+   - 呼叫原有的 `annotator.py` 在影像上畫框（Bounding Box）。
 
-3. ROI 空間關聯 (Spatial Association)：
-   - 針對通過過濾的 `person` 框，依據其高度進行垂直區域切割：
-     - **Head ROI**：該 `person` 框的頂部 1/3 區域（`y1` 到 `y1 + height/3`）。
-     - **Torso ROI**：該 `person` 框的中段 1/2 區域（從 `y1 + height/3` 開始向下延伸）。
-   - **判定條件**：計算裝備框（`helmet` 或 `vest`）的中心點 `(cx, cy)`。
-     - 若 `helmet` 的中心點落在該工人的框內，視為該工人「單幀配戴安全帽」。
-     - 若 `reflective_vest` 的中心點落在該工人的框內，視為該工人「單幀穿戴反光背心」。
+3. **警報與去重複機制 (Alert Debouncing)**：
+   - 當 `smoother.update` 回傳的工人狀態為違規（例如 `NO_HELMET`, `NO_VEST`, `NO_PPE`）時，觸發提醒。
+   - **請實作一個 `AlertManager`**：利用 `track_id` 控制發報頻率，確保同一位工人的同一個違規狀態，在特定時間內（例如 60 秒）只會觸發一次警報，避免「警報風暴」。
 
-4. 合規狀態判定 (Compliance Status)：
-   每個 `Track ID` 在單幀中會得到以下四種狀態之一：
-   - `COMPLIANT`：同時關聯到安全帽與反光背心。
-   - `NO_HELMET`：有反光背心，但無安全帽。
-   - `NO_VEST`：有安全帽，但無反光背心。
-   - `NO_PPE`：兩者皆無。
-
-5. 滑動窗口確認機制與記憶體管理 (Temporal Smoothing & Memory Cleanup)：
-   - 使用 `dict` 搭配 `collections.deque(maxlen=120)` 來儲存每個 `Track ID` 過去 120 幀的單幀狀態。
-   - **觸發警告條件**：只有當某一特定的違規狀態（例如 `NO_HELMET`）在過去 120 幀中累積出現 >= 100 幀時，才正式確認該狀態並觸發違規警告輸出。
-   - **記憶體清理**：若某個 `Track ID` 已經連續 300 幀未出現在追蹤器的活躍列表內（代表工人已離開畫面），必須將該 ID 從快取字典中完全移除，避免記憶體洩漏。
+4. **簡易 Web 前端驗證頁面 (Testing Dashboard)**：
+   - 提供一個簡單的 `index.html`（可以直接寫在 Python 字串中回傳，或獨立成 HTML 檔）。
+   - **即時影像區塊**：實作 MJPEG 串流路由（例如 `/video_feed`），讓前端可以使用 `<img src="/video_feed">` 即時看到有畫框的影像。
+   - **即時警報區塊**：實作 WebSocket 或 SSE (Server-Sent Events) 路由，當 `AlertManager` 觸發警報時，立刻推播文字訊息到前端頁面顯示（例如："Track #3 缺少安全帽"）。
 
 【輸出要求】
-1. 請以物件導向 (Class) 的方式實作（例如 `ConstructionSafetyMonitor`），結構需清晰、解耦。
-2. 在關鍵邏輯處（如 ROI 切割計算、中心點判定、時序計數、記憶體清理）加上詳細的繁體中文註解。
-3. 請預留一個 `visualize` 函數，使用 OpenCV 在影像上繪製工人的 `Track ID`、各個 ROI 框，並用文字標註其最终確認的合規狀態。
+1. 請提供完整的 `server.py`（包含 Web 路由、背景影像處理執行緒或非同步邏輯）。
+2. 請提供 `AlertManager` 的類別實作與整合方式。
+3. 請提供前端測試頁面 `index.html` 的程式碼。
+4. 程式碼需具備良好的繁體中文註解，特別是在影像串流產生 (Generator) 與 WebSocket 推播結合的地方。
