@@ -27,6 +27,7 @@ class TrackSnapshot:
     vest_hits: int
     window_size: int
     confirm_threshold: int
+    ppe_confirm_threshold: int
     temporal_status: ComplianceStatus
 
     @property
@@ -55,12 +56,16 @@ class _TrackState:
         vest_hits = sum(1 for r in self.history if r.has_vest)
         return person_hits, helmet_hits, vest_hits
 
-    def confirmed(self, confirm_threshold: int) -> tuple[bool, bool, bool]:
+    def confirmed(
+        self,
+        person_threshold: int,
+        ppe_threshold: int,
+    ) -> tuple[bool, bool, bool]:
         person_hits, helmet_hits, vest_hits = self.counts()
         return (
-            person_hits >= confirm_threshold,
-            helmet_hits >= confirm_threshold,
-            vest_hits >= confirm_threshold,
+            person_hits >= person_threshold,
+            helmet_hits >= ppe_threshold,
+            vest_hits >= ppe_threshold,
         )
 
 
@@ -71,10 +76,12 @@ class Smoother:
         self,
         window_size: int = 120,
         confirm_threshold: int = 100,
+        ppe_confirm_threshold: int = 80,
         max_missed_frames: int = 300,
     ):
         self.window_size = window_size
         self.confirm_threshold = confirm_threshold
+        self.ppe_confirm_threshold = ppe_confirm_threshold
         self.max_missed_frames = max_missed_frames
         self._tracks: dict[int, _TrackState] = {}
 
@@ -123,7 +130,8 @@ class Smoother:
     def _build_snapshot(self, track: _TrackState) -> TrackSnapshot:
         person_hits, helmet_hits, vest_hits = track.counts()
         confirmed_person, confirmed_helmet, confirmed_vest = track.confirmed(
-            self.confirm_threshold
+            self.confirm_threshold,
+            self.ppe_confirm_threshold,
         )
 
         latest = track.history[-1] if track.history else FrameRecord()
@@ -143,6 +151,7 @@ class Smoother:
             vest_hits=vest_hits,
             window_size=self.window_size,
             confirm_threshold=self.confirm_threshold,
+            ppe_confirm_threshold=self.ppe_confirm_threshold,
             temporal_status=temporal_status,
         )
 

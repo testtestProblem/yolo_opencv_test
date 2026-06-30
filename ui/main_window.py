@@ -42,6 +42,7 @@ class MainWindow(QMainWindow):
         self.smoother = Smoother(
             window_size=temporal_cfg["window_size"],
             confirm_threshold=temporal_cfg["confirm_threshold"],
+            ppe_confirm_threshold=temporal_cfg.get("ppe_confirm_threshold", 80),
             max_missed_frames=temporal_cfg.get("max_missed_frames", 300),
         )
 
@@ -94,6 +95,7 @@ class MainWindow(QMainWindow):
         self.result_panel = ResultPanel(
             window_size=temporal_cfg["window_size"],
             confirm_threshold=temporal_cfg["confirm_threshold"],
+            ppe_confirm_threshold=temporal_cfg.get("ppe_confirm_threshold", 80),
         )
         content_layout.addWidget(self.result_panel, stretch=1)
 

@@ -16,10 +16,16 @@ from ppe.types import ComplianceStatus
 class ResultPanel(QWidget):
     """GUI 右側結果面板。"""
 
-    def __init__(self, window_size: int = 120, confirm_threshold: int = 100):
+    def __init__(
+        self,
+        window_size: int = 120,
+        confirm_threshold: int = 100,
+        ppe_confirm_threshold: int = 80,
+    ):
         super().__init__()
         self.window_size = window_size
         self.confirm_threshold = confirm_threshold
+        self.ppe_confirm_threshold = ppe_confirm_threshold
         self.setMinimumWidth(280)
         self.setStyleSheet(
             "QGroupBox { font-weight: bold; margin-top: 8px; }"
@@ -40,7 +46,8 @@ class ResultPanel(QWidget):
         rule_layout.addWidget(
             QLabel(
                 f"ByteTrack 穩定 ID\n"
-                f"滑動窗口 {window_size} 幀，至少 {confirm_threshold} 幀命中才確認"
+                f"滑動窗口 {window_size} 幀\n"
+                f"person ≥ {confirm_threshold} 幀、PPE ≥ {ppe_confirm_threshold} 幀才確認"
             )
         )
         layout.addWidget(rule_box)
@@ -117,9 +124,9 @@ class ResultPanel(QWidget):
             f"<b>Track #{track.track_id}</b><br>"
             f"本幀：{track.frame_status_label}<br>"
             f"時序判定：{track.status_label}<br>"
-            f"person：{track.person_hits}/{track.window_size} ({person_mark})<br>"
-            f"安全帽：{track.helmet_hits}/{track.window_size} ({helmet_mark})<br>"
-            f"反光背心：{track.vest_hits}/{track.window_size} ({vest_mark})"
+            f"person：{track.person_hits}/{track.confirm_threshold} ({person_mark})<br>"
+            f"安全帽：{track.helmet_hits}/{track.ppe_confirm_threshold} ({helmet_mark})<br>"
+            f"反光背心：{track.vest_hits}/{track.ppe_confirm_threshold} ({vest_mark})"
         )
 
     def _refresh_violations(
@@ -134,8 +141,8 @@ class ResultPanel(QWidget):
             if track.confirmed_person:
                 lines.append(
                     f"#{track.track_id} Person Only — "
-                    f"hard-hat {track.helmet_hits}/{track.window_size}, "
-                    f"safety-vest {track.vest_hits}/{track.window_size}"
+                    f"hard-hat {track.helmet_hits}/{track.ppe_confirm_threshold}, "
+                    f"safety-vest {track.vest_hits}/{track.ppe_confirm_threshold}"
                 )
             else:
                 lines.append(

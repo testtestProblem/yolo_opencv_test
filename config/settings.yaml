@@ -1,7 +1,7 @@
 # 雙模型配置
 models:
   person:
-    path: "yolo26m.pt"
+    path: "best_20260628.pt"
     conf_threshold: 0.4
     iou_threshold: 0.45
     imgsz: 640
@@ -11,7 +11,7 @@ models:
       person: person
 
   ppe:
-    path: "best_v2.pt"
+    path: "best_20260628.pt"
     conf_threshold: 0.5
     iou_threshold: 0.45
     imgsz: 640
@@ -34,7 +34,8 @@ association:
 # 時序確認：滑動窗口 + 命中門檻 + 離場清理
 temporal:
   window_size: 120
-  confirm_threshold: 100
+  confirm_threshold: 100        # person 確認門檻
+  ppe_confirm_threshold: 80     # 安全帽 / 反光背心確認門檻
   max_missed_frames: 300
 
 ui:
